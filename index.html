@@ -58,6 +58,7 @@
             justify-content: center;
             align-items: center;
             text-align: center;
+            transition: opacity 0.3s;
         }
         .title-text {
             font-size: 28px;
@@ -253,51 +254,4 @@
     </div>
 
     <div class="main-content">
-        <div class="character-area">
-            <img id="char-img" src="normal.png" alt="キャラクター画像" class="character-img">
-            <div id="char-voice" class="speech-bubble"></div>
-        </div>
-        <div class="quiz-area">
-            <div id="question-text" class="question-text">読み込み中...</div>
-            <div id="options" class="options-grid"></div>
-        </div>
-    </div>
-
-    <div class="side-panel">
-        <span class="point-label">ポイント</span>
-        <div class="gauge-container">
-            <div id="gauge-fill" class="gauge-fill"></div>
-        </div>
-        <span id="score-text" class="score-num">0%</span>
-    </div>
-</div>
-
-<script src="questions.js"></script>
-
-<script>
-    const images = {
-        normal: "normal.png",
-        normal10: "normal10.png",
-        normal20: "normal20.png",
-        normal30: "normal30.png",
-        good: "good.png",
-        bad: "bad.png",
-        special: "special.png",
-        special20: "special20.png",
-        special30: "special30.png",
-        special_max: "special_max.png"
-    };
-
-    // --- Audio Settings ---
-    const AudioContext = window.AudioContext || window.webkitAudioContext;
-    let audioCtx;
-    let isMuted = false;
-    let bgmOsc = null;
-    let bgmGain = null;
-    let bgmInterval = null;
-    let bgmNoteIndex = 0;
-
-    const NOTES = {
-        'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
-        'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
-        'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880
+        <div class="
