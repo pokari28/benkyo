@@ -58,7 +58,6 @@
             justify-content: center;
             align-items: center;
             text-align: center;
-            transition: opacity 0.3s;
         }
         .title-text {
             font-size: 28px;
@@ -254,4 +253,41 @@
     </div>
 
     <div class="main-content">
-        <div class="
+        <div class="character-area">
+            <img id="char-img" src="normal.png" alt="キャラクター画像" class="character-img">
+            <div id="char-voice" class="speech-bubble"></div>
+        </div>
+        <div class="quiz-area">
+            <div id="question-text" class="question-text">読み込み中...</div>
+            <div id="options" class="options-grid"></div>
+        </div>
+    </div>
+
+    <div class="side-panel">
+        <span class="point-label">ポイント</span>
+        <div class="gauge-container">
+            <div id="gauge-fill" class="gauge-fill"></div>
+        </div>
+        <span id="score-text" class="score-num">0%</span>
+    </div>
+</div>
+
+<script>
+    // --- ここに問題を直接埋め込みました（エラー防止） ---
+    const questions = [
+        { q: "六大陸はユーラシア、アフリカ、北アメリカ、南アメリカ、南極と、あと一つは何大陸？", options: ["オーストラリア大陸", "ヨーロッパ大陸", "グリーンランド"], ans: 0 },
+        { q: "三大洋は太平洋、大西洋、あともう一つは何だっけ？", options: ["インド洋", "北極海", "地中海"], ans: 0 },
+        { q: "寒い地域（冷帯）に広がる針葉樹林の森のことを何て言う？", options: ["ジャングル", "タイガ", "サバンナ"], ans: 1 },
+        { q: "東アジアや南アジアの気候に影響を与える、夏と冬で向きが変わる風の名前は？", options: ["偏西風", "貿易風", "モンスーン"], ans: 2 },
+        { q: "中国の沿岸部にある、外国企業を呼ぶために税金とかを安くしてる地域を何て言う？", options: ["経済特区", "特別経済区（SEZ）", "自由貿易地域"], ans: 1 },
+        { q: "かつて南アフリカで行われていた、ひどい人種隔離政策の名前は？", options: ["アパルトヘイト", "カースト制", "公民権運動"], ans: 0 },
+        { q: "世界で一番面積が大きい国はどこかな？", options: ["中国", "アメリカ", "ロシア"], ans: 2 },
+        { q: "オーストラリアの東側でよく掘れる資源は何だっけ？", options: ["石油", "鉄鉱石", "石炭"], ans: 2 },
+        { q: "ヨーロッパ連合の略称、アルファベット2文字で何て言う？", options: ["UN", "EU", "NATO"], ans: 1 },
+        { q: "アジアで一番高い山はどこかな？", options: ["キリマンジャロ", "モンブラン", "エベレスト"], ans: 2 },
+        { q: "中国にある、北からの侵入を防ぐために作られた長ーい壁は？", options: ["万里の長城", "ピラミッド", "タージマハル"], ans: 0 },
+        { q: "昔、ヨーロッパとアジアを結んでいた陸の交通路のことを何て呼ぶ？", options: ["シルクロード", "東海道", "アウトバーン"], ans: 0 },
+        { q: "アフリカ大陸で一番高い山は？", options: ["エベレスト", "キリマンジャロ山", "富士山"], ans: 1 },
+        { q: "アジアで一番広い面積を持っている国はどこ？", options: ["インド", "ロシア", "中華人民共和国"], ans: 2 },
+        { q: "アメリカ合衆国の首都はどこか知ってる？", options: ["ニューヨーク", "ロサンゼルス", "ワシントンD.C."], ans: 2 },
+        { q: "アフリカ大陸で一番長い川の名前は？", options: ["アマゾン川", "ナイル川", "ミシシッピ川"], ans:
