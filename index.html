@@ -69,24 +69,44 @@
             width: 200px;
             height: 200px;
             object-fit: contain;
-            margin-bottom: 30px;
+            margin-bottom: 20px;
+        }
+        
+        /* ボタンエリアのスタイル変更 */
+        .btn-area {
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* ボタンの間隔 */
+            width: 80%;
         }
         .start-btn {
-            background-color: #ff6699;
             color: white;
             border: none;
-            padding: 15px 40px;
+            padding: 15px 0;
             border-radius: 30px;
-            font-size: 24px;
+            font-size: 20px;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 5px 15px rgba(255, 102, 153, 0.4);
+            box-shadow: 0 5px 10px rgba(0,0,0,0.2);
             transition: transform 0.1s;
+            width: 100%;
         }
         .start-btn:active { transform: scale(0.95); }
+        
+        /* 初心者モードボタン（緑） */
+        .beginner-mode {
+            background-color: #43e97b; 
+            border: 2px solid #38f9d7;
+        }
+        /* 通常モードボタン（ピンク） */
+        .normal-mode {
+            background-color: #ff6699;
+            border: 2px solid #ff99cc;
+        }
+
         .highscore-text {
             margin-top: 20px;
-            font-size: 16px;
+            font-size: 14px;
             color: #666;
         }
 
@@ -225,7 +245,12 @@
     <div id="title-screen">
         <h1 class="title-text">社会科<br>一問一答チャレンジ！</h1>
         <img src="normal.png" alt="タイトル画像" class="title-img">
-        <button class="start-btn" onclick="startGame()">スタート</button>
+        
+        <div class="btn-area">
+            <button class="start-btn beginner-mode" onclick="startGame('beginner')">🔰 初心者モード (10問)</button>
+            <button class="start-btn normal-mode" onclick="startGame('normal')">🔥 通常モード (30問)</button>
+        </div>
+
         <div class="highscore-text">最高ポイント: <span id="highscore-num">0</span>%</div>
     </div>
 
@@ -265,19 +290,22 @@
         special_max: "special_max.png"
     };
 
+    // --- Audio Settings ---
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
     let isMuted = false;
+    let bgmOsc = null;
+    let bgmGain = null;
+    let bgmInterval = null;
+    let bgmNoteIndex = 0;
 
-    // --- 音階データ ---
     const NOTES = {
         'C3': 130.81, 'D3': 146.83, 'E3': 164.81, 'F3': 174.61, 'G3': 196.00, 'A3': 220.00, 'B3': 246.94,
         'C4': 261.63, 'D4': 293.66, 'E4': 329.63, 'F4': 349.23, 'G4': 392.00, 'A4': 440.00, 'B4': 493.88,
         'C5': 523.25, 'D5': 587.33, 'E5': 659.25, 'F5': 698.46, 'G5': 783.99, 'A5': 880.00, 'B5': 987.77,
-        'R': 0 // 休符
+        'R': 0 
     };
 
-    // --- BGMの楽譜データ ---
     const bgmScores = {
         level0: [
             {n:'C4',l:2}, {n:'E4',l:2}, {n:'G4',l:2}, {n:'E4',l:2}, 
@@ -286,425 +314,4 @@
             {n:'E4',l:2}, {n:'D4',l:2}, {n:'C4',l:4}
         ],
         level10: [
-            {n:'G4',l:1}, {n:'A4',l:1}, {n:'B4',l:1}, {n:'C5',l:1}, {n:'D5',l:2}, {n:'C5',l:2},
-            {n:'B4',l:1}, {n:'A4',l:1}, {n:'G4',l:1}, {n:'F4',l:1}, {n:'E4',l:2}, {n:'G4',l:2},
-            {n:'F4',l:1}, {n:'F4',l:1}, {n:'E4',l:1}, {n:'E4',l:1}, {n:'D4',l:1}, {n:'D4',l:1}, {n:'G4',l:2}
-        ],
-        level20: [
-            {n:'A3',l:1}, {n:'A3',l:1}, {n:'C4',l:1}, {n:'E4',l:1}, {n:'A4',l:2}, {n:'R',l:1}, {n:'G4',l:1},
-            {n:'F4',l:2}, {n:'E4',l:2}, {n:'D4',l:2}, {n:'E4',l:2},
-            {n:'A3',l:1}, {n:'B3',l:1}, {n:'C4',l:1}, {n:'D4',l:1}, {n:'E4',l:4}
-        ],
-        level30: [
-            {n:'C5',l:1}, {n:'G4',l:1}, {n:'E4',l:1}, {n:'C4',l:1}, {n:'G4',l:1}, {n:'C5',l:1}, {n:'E5',l:2},
-            {n:'F5',l:1}, {n:'C5',l:1}, {n:'A4',l:1}, {n:'F4',l:1}, {n:'A4',l:1}, {n:'C5',l:1}, {n:'F5',l:2},
-            {n:'G5',l:1}, {n:'F5',l:1}, {n:'E5',l:1}, {n:'D5',l:1}, {n:'C5',l:1}, {n:'B4',l:1}, {n:'C5',l:2}
-        ]
-    };
-
-    let bgmTimer = null;
-    let currentScoreData = [];
-    let noteIndex = 0;
-    let baseTempo = 150; 
-
-    function initAudio() {
-        if (!audioCtx) audioCtx = new AudioContext();
-    }
-
-    function startGeneratedBGM(level) {
-        if (isMuted) return;
-        if (bgmTimer) clearTimeout(bgmTimer); 
-
-        initAudio();
-        
-        if (level >= 30) {
-            currentScoreData = bgmScores.level30;
-            baseTempo = 100; 
-        } else if (level >= 20) {
-            currentScoreData = bgmScores.level20;
-            baseTempo = 120; 
-        } else if (level >= 10) {
-            currentScoreData = bgmScores.level10;
-            baseTempo = 130;
-        } else {
-            currentScoreData = bgmScores.level0;
-            baseTempo = 180; 
-        }
-        
-        noteIndex = 0;
-        playNextNote();
-    }
-
-    function playNextNote() {
-        if (isMuted) return;
-        if (!currentScoreData || currentScoreData.length === 0) return;
-
-        const noteData = currentScoreData[noteIndex];
-        const freq = NOTES[noteData.n];
-        const duration = noteData.l * baseTempo; 
-
-        if (freq > 0) {
-            playOscillator(freq, duration * 0.001 * 0.8, 'square', 0.03); 
-        }
-
-        noteIndex = (noteIndex + 1) % currentScoreData.length;
-        bgmTimer = setTimeout(playNextNote, duration);
-    }
-
-    function playOscillator(freq, duration, type, volume) {
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = type;
-        osc.frequency.value = freq;
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        
-        const now = audioCtx.currentTime;
-        osc.start(now);
-        osc.stop(now + duration);
-        
-        gain.gain.setValueAtTime(volume, now);
-        gain.gain.linearRampToValueAtTime(0, now + duration);
-    }
-
-    function stopBGM() {
-        if (bgmTimer) {
-            clearTimeout(bgmTimer);
-            bgmTimer = null;
-        }
-    }
-
-    function toggleMute() {
-        isMuted = !isMuted;
-        const btn = document.getElementById("mute-btn");
-        if (isMuted) {
-            btn.innerText = "🔇";
-            stopBGM();
-        } else {
-            btn.innerText = "🔊";
-            if (document.getElementById("title-screen").style.display === "none") {
-                startGeneratedBGM(score);
-            }
-        }
-    }
-
-    function playTypeSound() {
-        if (isMuted) return;
-        initAudio();
-        playOscillator(800 + Math.random() * 200, 0.05, 'square', 0.02);
-    }
-
-    function playGoodSound() {
-        if (isMuted) return;
-        initAudio();
-        const now = audioCtx.currentTime;
-        playOscillator(660, 0.1, 'sine', 0.1);
-        setTimeout(() => playOscillator(880, 0.3, 'sine', 0.1), 100);
-    }
-
-    function playBadSound() {
-        if (isMuted) return;
-        initAudio();
-        playOscillator(150, 0.2, 'sawtooth', 0.1);
-        setTimeout(() => playOscillator(100, 0.3, 'sawtooth', 0.1), 200);
-    }
-
-    function playFanfare() {
-        if (isMuted) return;
-        stopBGM(); 
-        initAudio();
-        
-        setTimeout(() => playOscillator(523.25, 0.15, 'square', 0.1), 0);
-        setTimeout(() => playOscillator(659.25, 0.15, 'square', 0.1), 150);
-        setTimeout(() => playOscillator(783.99, 0.15, 'square', 0.1), 300);
-        setTimeout(() => playOscillator(1046.50, 0.6, 'square', 0.1), 450);
-        
-        setTimeout(() => {
-            if (!isMuted && document.getElementById("title-screen").style.display === "none") {
-                startGeneratedBGM(score);
-            }
-        }, 1500);
-    }
-    
-    function playStartSound() {
-        if (isMuted) return;
-        initAudio();
-        setTimeout(() => playOscillator(1046.50, 0.1, 'square', 0.1), 0);
-        setTimeout(() => playOscillator(1318.51, 0.4, 'square', 0.1), 100);
-    }
-
-    let typeWriterTimer;
-    function showDialogue(text) {
-        const bubble = document.getElementById("char-voice");
-        bubble.innerHTML = "";
-        if (typeWriterTimer) clearTimeout(typeWriterTimer);
-        let i = 0;
-        function typeChar() {
-            if (i < text.length) {
-                bubble.textContent += text.charAt(i);
-                playTypeSound();
-                i++;
-                typeWriterTimer = setTimeout(typeChar, 60);
-            }
-        }
-        typeChar();
-    }
-
-    let questionTypeTimer;
-    function showQuestionText(text) {
-        const qBox = document.getElementById("question-text");
-        qBox.innerHTML = "";
-        if (questionTypeTimer) clearTimeout(questionTypeTimer);
-        let i = 0;
-        function typeQ() {
-            if (i < text.length) {
-                qBox.textContent += text.charAt(i);
-                playTypeSound(); 
-                i++;
-                questionTypeTimer = setTimeout(typeQ, 40);
-            }
-        }
-        typeQ();
-    }
-
-    const preQuestions = [
-        "行くよ！", "次言うよ！", "じゃあ次はこれ！", "準備はいい？", "次の問題！",
-        "さあ、次！", "これはどうかな？", "集中してね！", "よく聞いて！", "次はこれだ！",
-        "どんどん行くよ！", "まだまだ行くよ！", "ついてこれる？", "次は難しいかも？", "さあ、頑張って！",
-        "次の勝負！", "気合入れて！", "深呼吸して…はい！", "準備万端？", "さあ、答えて！",
-        "次はどの分野かな？", "よーし、次は…", "張り切って行こう！", "次も正解しちゃおう！", "油断しないで！",
-        "次の問題行くね！", "さあ、次だ！", "準備OK？", "レッツゴー！", "次はこれ！わかる？",
-        "まだまだ続くよ！", "全問正解目指して！"
-    ];
-
-    const reactions = {
-        correct: ["その調子！", "正解！いいぞ！", "ポイント上昇中！", "やるね！", "素晴らしい！", "君は天才かも！？", "冴えてるね！", "完璧な答え！", "ブラボー！", "歴史博士だね！", "すごーい！", "見事な正解！", "勉強の成果！"],
-        wrong: ["ドンマイ！", "次は当てよう！", "復習が大事！", "あちゃー…", "惜しかったかも？", "もう一回確認！"],
-        finish: "お疲れ様！また挑戦してね！",
-        special10: "10問正解！いいペースだよ！",
-        special20: "20問正解！エライエライ！",
-        special30: "30問正解！先生も嬉しいよ！"
-    };
-
-    function shuffle(array) {
-        for (let i = array.length - 1; i > 0; i--) {
-            const j = Math.floor(Math.random() * (i + 1));
-            [array[i], array[j]] = [array[j], array[i]];
-        }
-        return array;
-    }
-
-    let currentQIndex = 0;
-    let score = 0;
-    let quizData = [];
-    let highScore = localStorage.getItem('socialQuizHighScore') || 0;
-    
-    // ★重要：一度間違えた問題かどうかを記録するフラグ
-    let isQuestionFailed = false;
-
-    const titleScreen = document.getElementById("title-screen");
-    const highscoreNum = document.getElementById("highscore-num");
-    const charImg = document.getElementById("char-img");
-    const questionText = document.getElementById("question-text");
-    const optionsDiv = document.getElementById("options");
-    const gaugeFill = document.getElementById("gauge-fill");
-    const scoreText = document.getElementById("score-text");
-
-    highscoreNum.innerText = highScore;
-
-    function startGame() {
-        playStartSound();
-        titleScreen.style.display = 'none'; 
-        initAudio(); 
-        startGeneratedBGM(0);
-        initGame();
-    }
-
-    function initGame() {
-        if (typeof questions === 'undefined') {
-            questionText.innerText = "エラー：questions.jsが見つかりません";
-            return;
-        }
-        
-        // ★全問題をシャッフルして、30問だけ選ぶ
-        let shuffled = shuffle([...questions]);
-        if (shuffled.length > 30) {
-            quizData = shuffled.slice(0, 30);
-        } else {
-            quizData = shuffled;
-        }
-        
-        currentQIndex = 0;
-        score = 0;
-        isQuestionFailed = false; // フラグリセット
-        
-        charImg.src = getCurrentNormalImage();
-        updateGauge();
-        showQuestion();
-    }
-    
-    function getCurrentNormalImage() {
-        if (score >= 30) return images.normal30 || images.normal20;
-        if (score >= 20) return images.normal20;
-        if (score >= 10) return images.normal10;
-        return images.normal;
-    }
-    
-    function updateGauge() {
-        let percentage = Math.round((score / quizData.length) * 100);
-        gaugeFill.style.height = percentage + "%";
-        scoreText.innerText = percentage + "%";
-        if (percentage < 30) { gaugeFill.style.background = "linear-gradient(0deg, #4facfe 0%, #00f2fe 100%)"; }
-        else if (percentage < 70) { gaugeFill.style.background = "linear-gradient(0deg, #43e97b 0%, #38f9d7 100%)"; }
-        else { gaugeFill.style.background = "linear-gradient(0deg, #fa709a 0%, #fee140 100%)"; }
-    }
-
-    function showQuestion() {
-        if (currentQIndex >= quizData.length) {
-            finishGame();
-            return;
-        }
-
-        const q = quizData[currentQIndex];
-        
-        // ★新問題になったので、失敗フラグをリセット
-        isQuestionFailed = false;
-
-        const displayQuestionContent = () => {
-             showQuestionText(`Q${currentQIndex + 1}. ${q.q}`);
-             
-             optionsDiv.innerHTML = "";
-             q.options.forEach((opt, index) => {
-                 const btn = document.createElement("button");
-                 btn.innerText = opt;
-                 // ボタンそのものに正解かどうか仕込んでおく
-                 btn.onclick = (e) => checkAnswer(index, q.ans, e.target);
-                 optionsDiv.appendChild(btn);
-             });
-             
-             charImg.src = getCurrentNormalImage();
-             charImg.classList.remove("correct-anim", "wrong-anim");
-             showDialogue(""); 
-        };
-
-        let prePhrase = "";
-        if (currentQIndex === 0) {
-            prePhrase = "先生と一緒に頑張ろ！";
-        } else {
-            prePhrase = preQuestions[Math.floor(Math.random() * preQuestions.length)];
-        }
-
-        showDialogue(prePhrase);
-        questionText.innerHTML = "";
-        optionsDiv.innerHTML = "";
-        charImg.src = getCurrentNormalImage();
-
-        setTimeout(() => {
-            displayQuestionContent();
-        }, 1000);
-    }
-
-    // ★判定ロジックの大幅変更
-    function checkAnswer(selectedIndex, correctIndex, clickedBtn) {
-        if (selectedIndex === correctIndex) {
-            // --- 正解の場合 ---
-            
-            // ボタンを全部無効化
-            const buttons = optionsDiv.querySelectorAll("button");
-            buttons.forEach(btn => btn.disabled = true);
-            clickedBtn.style.backgroundColor = "#ff99cc"; // 正解色
-
-            // ★一度も間違えていなければスコア加算
-            if (!isQuestionFailed) {
-                score++;
-                updateGauge();
-                startGeneratedBGM(score); // スコアによってBGM変化
-            }
-
-            // ご褒美チェック
-            let specialReaction = null;
-            let specialImage = null;
-            // 失敗してない、かつスコアが区切りなら褒める
-            if (!isQuestionFailed) {
-                if (score === 20) {
-                    specialReaction = reactions.special20;
-                    specialImage = images.special20;
-                } else if (score === 30) {
-                    specialReaction = reactions.special30;
-                    specialImage = images.special30;
-                } else if (score === 10) { 
-                     specialReaction = reactions.special10;
-                     specialImage = images.special;
-                }
-            }
-
-            if (specialImage) {
-                playFanfare();
-                showDialogue(specialReaction);
-                charImg.src = specialImage;
-                currentQIndex++;
-                setTimeout(showQuestion, 4000); 
-                return;
-            }
-
-            playGoodSound();
-            const randomPraise = reactions.correct[Math.floor(Math.random() * reactions.correct.length)];
-            showDialogue(randomPraise);
-            charImg.src = images.good; 
-            charImg.classList.add("correct-anim");
-            
-            // 次へ進む
-            currentQIndex++;
-            setTimeout(showQuestion, 2000);
-
-        } else {
-            // --- 不正解の場合 ---
-            
-            // ★失敗フラグを立てる（もうこの問題は得点にならない）
-            isQuestionFailed = true;
-            
-            playBadSound();
-            const randomEncourage = reactions.wrong[Math.floor(Math.random() * reactions.wrong.length)];
-            showDialogue(randomEncourage);
-            charImg.src = images.bad; 
-            charImg.classList.add("wrong-anim");
-            
-            // ★間違えたボタンだけ押せなくして、色を変える
-            clickedBtn.style.backgroundColor = "#999";
-            clickedBtn.disabled = true;
-            
-            // ★先には進まない！（returnして終わり）
-        }
-    }
-
-    function finishGame() {
-        stopBGM();
-        
-        const finalPercentage = Math.round((score / quizData.length) * 100);
-        questionText.innerText = `全問終了！最終ポイント: ${finalPercentage}%`;
-        
-        if (finalPercentage > highScore) {
-            highScore = finalPercentage;
-            localStorage.setItem('socialQuizHighScore', highScore); 
-            highscoreNum.innerText = highScore; 
-            questionText.innerText += "\n🎉ハイスコア更新！🎉";
-        }
-
-        optionsDiv.innerHTML = '<button onclick="location.reload()">タイトルに戻る</button>'; 
-        
-        if (score === quizData.length) {
-            showDialogue("とっても頑張ったね！<br>今度もよろしくね！"); 
-            charImg.src = images.special_max; 
-            playFanfare();
-            gaugeFill.style.height = "100%";
-            gaugeFill.style.background = "linear-gradient(0deg, #ff0844 0%, #ffb199 100%)";
-        } else {
-            showDialogue(reactions.finish);
-            charImg.src = images.normal;
-        }
-    }
-
-</script>
-
-</body>
-</html>
+            {n:'G4',
